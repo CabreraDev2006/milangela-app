@@ -14,19 +14,26 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install dependencies and build
+      - name: Install dependencies
         run: |
           npm install
           cd frontend && npm install && cd ..
-          npm run build-frontend
       
-      - name: Setup Capacitor
+      - name: Build frontend
+        run: npm run build-frontend
+      
+      - name: Create iOS project with Capacitor
         run: |
+          # Instalar Capacitor
           npm install @capacitor/core @capacitor/cli @capacitor/ios
+          
+          # Inicializar Capacitor
           npx cap init Milangela com.milangela.app --web-dir=frontend/dist
-      
-      - name: Fix iOS project
-        run: |
+          
+          # Agregar iOS (esto creará la carpeta ios/)
+          npx cap add ios
+          
+          # Navegar a la carpeta iOS
           cd ios/App
           
           # Crear Podfile correcto
