@@ -14,29 +14,29 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install dependencies
+      - name: Install dependencies and build frontend
         run: |
           npm install
           cd frontend && npm install && cd ..
-      
-      - name: Build frontend
-        run: npm run build-frontend
+          npm run build-frontend
       
       - name: Create iOS project with Capacitor
         run: |
           # Instalar Capacitor
           npm install @capacitor/core @capacitor/cli @capacitor/ios
           
-          # Inicializar Capacitor
+          # Inicializar Capacitor (esto crea capacitor.config.json)
           npx cap init Milangela com.milangela.app --web-dir=frontend/dist
           
-          # Agregar iOS (esto creará la carpeta ios/)
+          # Agregar iOS (esto creará la carpeta ios/ desde cero)
           npx cap add ios
           
           # Navegar a la carpeta iOS
           cd ios/App
           
-          # Crear Podfile correcto
+          # --- Configuraciones post-creación ---
+          
+          # 1. Crear Podfile correcto
           cat > Podfile << 'EOF'
           platform :ios, '15.0'
           target 'App' do
@@ -46,20 +46,20 @@ jobs:
           end
           EOF
           
-          # Modificar deployment target
+          # 2. Modificar deployment target en el proyecto
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
           
-          # Eliminar referencias a storyboards
+          # 3. Eliminar referencias a storyboards (si existen para evitar errores)
           sed -i '' '/Main.storyboard/d' App.xcodeproj/project.pbxproj
           sed -i '' '/LaunchScreen.storyboard/d' App.xcodeproj/project.pbxproj
           
-          # Modificar Info.plist
+          # 4. Limpiar Info.plist
           cd App
           /usr/libexec/PlistBuddy -c "Delete :UIMainStoryboardFile" Info.plist 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Delete :UILaunchStoryboardName" Info.plist 2>/dev/null || true
           cd ..
           
-          # Instalar pods
+          # 5. Instalar pods
           pod install --repo-update
       
       - name: Sync Capacitor
