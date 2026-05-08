@@ -1,0 +1,24 @@
+{
+  "appId": "com.milangela.app",
+  "appName": "Milangela",
+  "webDir": "frontend/dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "iosScheme": "capacitor",
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#0a0a0a"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#0a0a0a",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true
+    }
+  }
+}

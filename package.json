@@ -1,0 +1,32 @@
+{
+  "name": "milangela-app",
+  "productName": "Milangela",
+  "version": "2.0.0",
+  "description": "Sistema de gestión de tienda",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run build --prefix frontend --watch\" \"npm run electron\"",
+    "electron": "cd electron && npx electron .",
+    "build-frontend": "npm run build --prefix frontend",
+    "build": "npm run build-frontend && electron-builder",
+    "build:win": "npm run build-frontend && electron-builder --win",
+    "build:linux": "npm run build-frontend && electron-builder --linux",
+    "build:mac": "npm run build-frontend && electron-builder --mac",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^7.6.4",
+    "@capacitor/core": "^8.3.3",
+    "@capacitor/ios": "^8.3.3",
+    "node-fetch": "^2.7.0",
+    "sql.js": "^1.14.1"
+  },
+  "author": "Eliezer Cabrera",
+  "license": "MIT"
+}
