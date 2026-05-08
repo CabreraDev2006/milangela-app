@@ -1,0 +1,87 @@
+name: Build iOS App (DEFINITIVO)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Build frontend
+        run: |
+          npm install
+          cd frontend && npm install && cd ..
+          npm run build-frontend
+      
+      - name: Setup Capacitor
+        run: |
+          npx cap init Milangela com.milangela.app --web-dir=frontend/dist
+          npm install @capacitor/ios
+          npx cap add ios
+      
+      - name: 🔧 FIX CRITICAL - Podfile y Deployment Target
+        run: |
+          cd ios/App
+          
+          # Limpiar todo rastro anterior
+          rm -rf Pods Podfile.lock Podfile
+          
+          # Crear el Podfile correcto (ESTE ES EL FIX DEFINITIVO)
+          cat > Podfile << 'EOF'
+          platform :ios, '15.0'
+          target 'App' do
+            use_frameworks! :linkage => :static
+            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          end
+          EOF
+          
+          # Modificar deployment target en el proyecto
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
+          
+          # Eliminar storyboards problemáticos
+          sed -i '' '/Main.storyboard/d' App.xcodeproj/project.pbxproj
+          sed -i '' '/LaunchScreen.storyboard/d' App.xcodeproj/project.pbxproj
+          
+          # Limpiar Info.plist
+          cd App
+          /usr/libexec/PlistBuddy -c "Delete :UIMainStoryboardFile" Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Delete :UILaunchStoryboardName" Info.plist 2>/dev/null || true
+          cd ..
+          
+          echo "=========================================="
+          echo "✅ Podfile corregido y verificado:"
+          cat Podfile
+          echo "=========================================="
+      
+      - name: Install Pods
+        run: |
+          cd ios/App
+          pod install --repo-update
+      
+      - name: Capacitor Sync
+        run: npx cap sync
+      
+      - name: Build iOS App
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build CODE_SIGNING_ALLOWED=NO
+      
+      - name: Create IPA
+        run: |
+          mkdir -p Payload
+          cp -r ios/App/build/Release-iphoneos/App.app Payload/
+          zip -r Milangela.ipa Payload
+      
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Milangela-iOS
+          path: Milangela.ipa
