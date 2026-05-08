@@ -1,0 +1,71 @@
+name: Build iOS App (Fixed)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Build frontend
+        run: |
+          npm install
+          cd frontend && npm install && cd ..
+          npm run build-frontend
+      
+      - name: Create iOS project
+        run: |
+          npx cap init Milangela com.milangela.app --web-dir=frontend/dist
+          npm install @capacitor/ios
+          npx cap add ios
+      
+      - name: FIX - Replace Podfile and deployment target
+        run: |
+          cd ios/App
+          # Borrar archivos viejos
+          rm -rf Pods Podfile.lock Podfile
+          
+          # Crear Podfile correcto
+          echo 'platform :ios, "15.0"' > Podfile
+          echo '' >> Podfile
+          echo 'target "App" do' >> Podfile
+          echo '  use_frameworks! :linkage => :static' >> Podfile
+          echo '  pod "Capacitor", :path => "../../node_modules/@capacitor/ios"' >> Podfile
+          echo '  pod "CapacitorCordova", :path => "../../node_modules/@capacitor/ios"' >> Podfile
+          echo 'end' >> Podfile
+          
+          # Cambiar deployment target
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
+          
+          # Eliminar storyboards
+          sed -i '' '/Main.storyboard/d' App.xcodeproj/project.pbxproj
+          sed -i '' '/LaunchScreen.storyboard/d' App.xcodeproj/project.pbxproj
+          
+          echo "Podfile contenido:"
+          cat Podfile
+      
+      - name: Install pods
+        run: |
+          cd ios/App
+          pod install --repo-update
+      
+      - name: Capacitor sync
+        run: npx cap sync
+      
+      - name: Build app
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build CODE_SIGNING_ALLOWED=NO
+      
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Milangela-iOS
+          path: ios/App/build/Release-iphoneos/App.app
