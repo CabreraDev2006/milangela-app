@@ -16,11 +16,13 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install dependencies and build frontend
+      - name: Install dependencies
         run: |
           npm install
           cd frontend && npm install && cd ..
-          npm run build-frontend
+      
+      - name: Build frontend
+        run: npm run build-frontend
       
       - name: Setup Capacitor
         run: |
@@ -28,33 +30,28 @@ jobs:
           npx cap init Milangela com.milangela.app --web-dir=frontend/dist
           npx cap add ios
       
-      - name: MANUAL FIX - Override Podfile
+      - name: FIX - Create correct Podfile
         run: |
           cd ios/App
-          # Eliminar Podfile existente
-          rm -f Podfile
-          # Crear Podfile correcto
-          cat > Podfile << 'EOF'
-          platform :ios, '15.0'
-          
-          target 'App' do
-            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
-            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-          end
-          EOF
-          
-          echo "=== Contenido de Podfile ==="
+          rm -f Podfile Podfile.lock
+          echo 'platform :ios, "15.0"' > Podfile
+          echo '' >> Podfile
+          echo 'target "App" do' >> Podfile
+          echo '  pod "Capacitor", :path => "../../node_modules/@capacitor/ios"' >> Podfile
+          echo '  pod "CapacitorCordova", :path => "../../node_modules/@capacitor/ios"' >> Podfile
+          echo 'end' >> Podfile
           cat Podfile
-          echo "============================"
-          
-          # Modificar project.pbxproj
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 11.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 12.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
       
-      - name: Install Pods
+      - name: Fix project deployment target
         run: |
           cd ios/App
+          /usr/libexec/PlistBuddy -c "Set :IPHONEOS_DEPLOYMENT_TARGET 15.0" App.xcodeproj/project.pbxproj || true
+          perl -pi -e 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]\.[0-9]/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
+      
+      - name: Install pods
+        run: |
+          cd ios/App
+          pod deintegrate || true
           pod install --repo-update
       
       - name: Sync Capacitor
@@ -68,7 +65,7 @@ jobs:
       - name: Create IPA
         run: |
           mkdir -p Payload
-          cp -r ios/App/build/Release-iphoneos/App.app Payload/
+          find ios/App -name "*.app" -type d -exec cp -r {} Payload/ \;
           zip -r Milangela.ipa Payload
       
       - name: Upload IPA
