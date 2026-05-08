@@ -31,14 +31,15 @@ jobs:
           # Agregar iOS (esto creará la carpeta ios/)
           npx cap add ios
       
-      - name: 🔧 FIX Podfile BEFORE pod install
+      - name: 🔧 [MANUAL FIX] Override Podfile BEFORE pod install runs
         run: |
           cd ios/App
           
-          # IMPORTANTE: Borrar Podfile.lock y Pods/ si existen
+          # Borrar cualquier Podfile existente y los pods instalados
+          rm -f Podfile
           rm -rf Pods Podfile.lock
           
-          # Crear Podfile correcto
+          # Crear el Podfile correcto manualmente
           cat > Podfile << 'EOF'
           platform :ios, '15.0'
           
@@ -49,25 +50,21 @@ jobs:
           end
           EOF
           
-          echo "=== Podfile creado ==="
-          cat Podfile
-          echo "======================"
-      
-      - name: Fix deployment target in project
-        run: |
-          cd ios/App
-          # Modificar deployment target
+          # Modificar el deployment target en el proyecto
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
           
-          # Eliminar storyboards
+          # Eliminar storyboards conflictivos
           sed -i '' '/Main.storyboard/d' App.xcodeproj/project.pbxproj
           sed -i '' '/LaunchScreen.storyboard/d' App.xcodeproj/project.pbxproj
           
-          # Modificar Info.plist
+          # Limpiar Info.plist
           cd App
           /usr/libexec/PlistBuddy -c "Delete :UIMainStoryboardFile" Info.plist 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Delete :UILaunchStoryboardName" Info.plist 2>/dev/null || true
           cd ..
+          
+          echo "✅ Podfile creado correctamente:"
+          cat Podfile
       
       - name: 📦 Install Pods
         run: |
