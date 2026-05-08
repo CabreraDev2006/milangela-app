@@ -16,39 +16,56 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Build frontend and setup
+      - name: Install dependencies and build frontend
         run: |
           npm install
           cd frontend && npm install && cd ..
           npm run build-frontend
+      
+      - name: Setup Capacitor
+        run: |
           npm install @capacitor/core @capacitor/cli @capacitor/ios
           npx cap init Milangela com.milangela.app --web-dir=frontend/dist
           npx cap add ios
       
-      - name: Fix iOS deployment target
+      - name: MANUAL FIX - Override Podfile
         run: |
           cd ios/App
+          # Eliminar Podfile existente
+          rm -f Podfile
           # Crear Podfile correcto
-          echo 'platform :ios, "15.0"' > Podfile
-          echo '' >> Podfile
-          echo "target 'App' do" >> Podfile
-          echo "  pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'" >> Podfile
-          echo "  pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'" >> Podfile
-          echo "end" >> Podfile
+          cat > Podfile << 'EOF'
+          platform :ios, '15.0'
           
-          # Instalar pods
+          target 'App' do
+            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          end
+          EOF
+          
+          echo "=== Contenido de Podfile ==="
+          cat Podfile
+          echo "============================"
+          
+          # Modificar project.pbxproj
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 11.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 12.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
+      
+      - name: Install Pods
+        run: |
+          cd ios/App
           pod install --repo-update
-          
-          # Volver y sync
-          cd ../..
-          npx cap sync
+      
+      - name: Sync Capacitor
+        run: npx cap sync
       
       - name: Build iOS app
         run: |
           cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build CODE_SIGNING_ALLOWED=NO
       
-      - name: Create and upload IPA
+      - name: Create IPA
         run: |
           mkdir -p Payload
           cp -r ios/App/build/Release-iphoneos/App.app Payload/
