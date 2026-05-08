@@ -14,21 +14,48 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install dependencies
+      - name: Install dependencies and build
         run: |
           npm install
           cd frontend && npm install && cd ..
+          npm run build-frontend
       
-      - name: Build frontend
-        run: npm run build-frontend
+      - name: Setup Capacitor and iOS
+        run: |
+          npx cap init Milangela com.milangela.app --web-dir=frontend/dist
+          npm install @capacitor/ios
+          npx cap add ios
+          
+          # Crear Podfile correcto
+          cd ios/App
+          cat > Podfile << 'EOF'
+          platform :ios, '15.0'
+          target 'App' do
+            use_frameworks! :linkage => :static
+            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          end
+          EOF
+          
+          # Modificar deployment target
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
+          
+          # Eliminar referencias a storyboards del proyecto
+          sed -i '' '/Main.storyboard/d' App.xcodeproj/project.pbxproj
+          sed -i '' '/LaunchScreen.storyboard/d' App.xcodeproj/project.pbxproj
+          
+          # Modificar Info.plist para quitar storyboards
+          cd App
+          /usr/libexec/PlistBuddy -c "Delete :UIMainStoryboardFile" Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Delete :UILaunchStoryboardName" Info.plist 2>/dev/null || true
+          cd ..
+          
+          # Instalar pods
+          pod install --repo-update
       
-      - name: Capacitor sync
-        run: npx cap sync
-      
-      - name: Install pods and build
+      - name: Build iOS app
         run: |
           cd ios/App
-          pod install --repo-update
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build CODE_SIGNING_ALLOWED=NO
       
       - name: Upload IPA
