@@ -5,9 +5,6 @@ on:
   push:
     branches: [ main, master ]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: macos-latest
@@ -19,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
       
       - name: Install dependencies
         run: |
@@ -29,27 +26,19 @@ jobs:
       - name: Build frontend
         run: npm run build-frontend
       
-      - name: Setup Capacitor
+      - name: Setup Capacitor and iOS
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/ios
           npx cap init Milangela com.milangela.app --web-dir=frontend/dist
           npx cap add ios
+          npx cap sync
       
-      - name: Fix Podfile deployment target
+      - name: Update deployment target
         run: |
           cd ios/App
-          # Modificar el Podfile para usar iOS 15.0
-          sed -i '' 's/platform :ios, .*/platform :ios, '\''15.0'\''/' Podfile
-          cat Podfile
-      
-      - name: Update CocoaPods
-        run: |
-          cd ios/App
-          pod repo update
-          pod install --repo-update
-      
-      - name: Sync Capacitor
-        run: npx cap sync
+          /usr/libexec/PlistBuddy -c "Set :IPHONEOS_DEPLOYMENT_TARGET 15.0" App.xcodeproj/project.pbxproj || true
+          sed -i '' 's/13.0/15.0/g' App.xcodeproj/project.pbxproj
+          pod install --repo-update || pod install
       
       - name: Build iOS app
         run: |
