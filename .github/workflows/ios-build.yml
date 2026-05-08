@@ -26,19 +26,42 @@ jobs:
       - name: Build frontend
         run: npm run build-frontend
       
-      - name: Setup Capacitor and iOS
+      - name: Setup Capacitor
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/ios
           npx cap init Milangela com.milangela.app --web-dir=frontend/dist
           npx cap add ios
-          npx cap sync
       
-      - name: Update deployment target
+      - name: Fix iOS deployment target
         run: |
           cd ios/App
-          /usr/libexec/PlistBuddy -c "Set :IPHONEOS_DEPLOYMENT_TARGET 15.0" App.xcodeproj/project.pbxproj || true
-          sed -i '' 's/13.0/15.0/g' App.xcodeproj/project.pbxproj
-          pod install --repo-update || pod install
+          # Método 1: Modificar project.pbxproj
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 11.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' App.xcodeproj/project.pbxproj
+          
+          # Método 2: Modificar Podfile
+          cat > Podfile << 'EOF'
+          platform :ios, '15.0'
+          
+          def capacitor_pods
+            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          end
+          
+          target 'App' do
+            capacitor_pods
+          end
+          EOF
+          
+          cat Podfile
+      
+      - name: Install pods
+        run: |
+          cd ios/App
+          pod install --repo-update
+      
+      - name: Sync Capacitor
+        run: npx cap sync
       
       - name: Build iOS app
         run: |
