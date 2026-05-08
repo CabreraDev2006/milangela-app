@@ -1,0 +1,68 @@
+name: Build iOS App Final
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: |
+          npm install
+          cd frontend && npm install && cd ..
+      
+      - name: Build frontend
+        run: npm run build-frontend
+      
+      - name: Create Capacitor iOS project
+        run: |
+          npx cap init Milangela com.milangela.app --web-dir=frontend/dist
+          npm install @capacitor/ios
+          npx cap add ios
+      
+      - name: FIX - Corrección manual del Podfile
+        run: |
+          cd ios/App
+          rm -rf Pods Podfile.lock Podfile
+          cat > Podfile << 'EOF'
+          platform :ios, '15.0'
+          target 'App' do
+            use_frameworks! :linkage => :static
+            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          end
+          EOF
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
+          cd App
+          /usr/libexec/PlistBuddy -c "Delete :UIMainStoryboardFile" Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Delete :UILaunchStoryboardName" Info.plist 2>/dev/null || true
+          cd ..
+          echo "✅ Podfile corregido:"
+          cat Podfile
+      
+      - name: Install CocoaPods
+        run: |
+          cd ios/App
+          pod install --repo-update
+      
+      - name: Capacitor sync
+        run: npx cap sync
+      
+      - name: Build iOS app
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build CODE_SIGNING_ALLOWED=NO
+      
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Milangela-iOS
+          path: ios/App/build/Release-iphoneos/App.app
