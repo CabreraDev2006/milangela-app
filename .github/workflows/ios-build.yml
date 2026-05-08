@@ -6,67 +6,33 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
       
-      - name: Install dependencies and build
+      - name: Install dependencies
         run: |
           npm install
           cd frontend && npm install && cd ..
-          npm run build-frontend
       
-      - name: Capacitor init
-        run: |
-          npx cap init Milangela com.milangela.app --web-dir=frontend/dist
-          npm install @capacitor/ios
-          npx cap add ios
+      - name: Build frontend
+        run: npm run build-frontend
       
-      - name: 🔧 FIX DEPLOYMENT TARGET
-        run: |
-          cd ios/App
-          # Crear Podfile correcto
-          cat > Podfile << 'EOF'
-          platform :ios, '15.0'
-          target 'App' do
-            pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
-            pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
-          end
-          EOF
-          
-          # Modificar project.pbxproj
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
-          
-          echo "Podfile creado:"
-          cat Podfile
+      - name: Capacitor sync
+        run: npx cap sync
       
-      - name: 📦 Install Pods
+      - name: Install pods and build
         run: |
           cd ios/App
           pod install --repo-update
-      
-      - name: 🔄 Sync Capacitor
-        run: npx cap sync
-      
-      - name: 🏗️ Build iOS app
-        run: |
-          cd ios/App
           xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build CODE_SIGNING_ALLOWED=NO
       
-      - name: 📱 Create IPA
-        run: |
-          mkdir -p Payload
-          cp -r ios/App/build/Release-iphoneos/App.app Payload/
-          zip -r Milangela.ipa Payload
-      
-      - name: 📤 Upload IPA
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Milangela-iOS
-          path: Milangela.ipa
+          path: ios/App/build/Release-iphoneos/App.app
