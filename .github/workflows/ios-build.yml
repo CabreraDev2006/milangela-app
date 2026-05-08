@@ -5,6 +5,9 @@ on:
   push:
     branches: [ main, master ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: macos-latest
@@ -16,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
       
       - name: Install dependencies
         run: |
@@ -29,14 +32,14 @@ jobs:
       - name: Setup Capacitor
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/ios
-          npx cap init Milangela com.milangela.app
+          npx cap init Milangela com.milangela.app --web-dir=frontend/dist
           npx cap add ios
           npx cap sync
       
       - name: Build iOS app
         run: |
           cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build CODE_SIGNING_ALLOWED=NO
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build CODE_SIGNING_ALLOWED=NO | xcpretty
       
       - name: Create IPA
         run: |
