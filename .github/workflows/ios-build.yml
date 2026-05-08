@@ -20,14 +20,16 @@ jobs:
           cd frontend && npm install && cd ..
           npm run build-frontend
       
-      - name: Setup Capacitor and iOS
+      - name: Setup Capacitor
         run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/ios
           npx cap init Milangela com.milangela.app --web-dir=frontend/dist
-          npm install @capacitor/ios
-          npx cap add ios
+      
+      - name: Fix iOS project
+        run: |
+          cd ios/App
           
           # Crear Podfile correcto
-          cd ios/App
           cat > Podfile << 'EOF'
           platform :ios, '15.0'
           target 'App' do
@@ -40,11 +42,11 @@ jobs:
           # Modificar deployment target
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
           
-          # Eliminar referencias a storyboards del proyecto
+          # Eliminar referencias a storyboards
           sed -i '' '/Main.storyboard/d' App.xcodeproj/project.pbxproj
           sed -i '' '/LaunchScreen.storyboard/d' App.xcodeproj/project.pbxproj
           
-          # Modificar Info.plist para quitar storyboards
+          # Modificar Info.plist
           cd App
           /usr/libexec/PlistBuddy -c "Delete :UIMainStoryboardFile" Info.plist 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Delete :UILaunchStoryboardName" Info.plist 2>/dev/null || true
@@ -52,6 +54,9 @@ jobs:
           
           # Instalar pods
           pod install --repo-update
+      
+      - name: Sync Capacitor
+        run: npx cap sync
       
       - name: Build iOS app
         run: |
