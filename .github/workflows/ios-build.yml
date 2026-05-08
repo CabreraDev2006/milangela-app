@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: '20'
       
-      - name: Install dependencies and build
+      - name: Install dependencies and build frontend
         run: |
           npm install
           cd frontend && npm install && cd ..
@@ -25,20 +25,23 @@ jobs:
           # Instalar Capacitor
           npm install @capacitor/core @capacitor/cli @capacitor/ios
           
-          # Inicializar Capacitor (esto crea capacitor.config.json)
+          # Inicializar Capacitor
           npx cap init Milangela com.milangela.app --web-dir=frontend/dist
           
-          # Agregar iOS (esto creará la carpeta ios/ desde cero)
+          # Agregar iOS (esto creará la carpeta ios/)
           npx cap add ios
-          
-          # Navegar a la carpeta iOS
+      
+      - name: 🔧 FIX Podfile BEFORE pod install
+        run: |
           cd ios/App
           
-          # --- Configuraciones post-creación ---
+          # IMPORTANTE: Borrar Podfile.lock y Pods/ si existen
+          rm -rf Pods Podfile.lock
           
-          # 1. Crear Podfile correcto
+          # Crear Podfile correcto
           cat > Podfile << 'EOF'
           platform :ios, '15.0'
+          
           target 'App' do
             use_frameworks! :linkage => :static
             pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
@@ -46,20 +49,29 @@ jobs:
           end
           EOF
           
-          # 2. Modificar deployment target en el proyecto
+          echo "=== Podfile creado ==="
+          cat Podfile
+          echo "======================"
+      
+      - name: Fix deployment target in project
+        run: |
+          cd ios/App
+          # Modificar deployment target
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 1[0-3]/IPHONEOS_DEPLOYMENT_TARGET = 15/g' App.xcodeproj/project.pbxproj
           
-          # 3. Eliminar referencias a storyboards (si existen para evitar errores)
+          # Eliminar storyboards
           sed -i '' '/Main.storyboard/d' App.xcodeproj/project.pbxproj
           sed -i '' '/LaunchScreen.storyboard/d' App.xcodeproj/project.pbxproj
           
-          # 4. Limpiar Info.plist
+          # Modificar Info.plist
           cd App
           /usr/libexec/PlistBuddy -c "Delete :UIMainStoryboardFile" Info.plist 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Delete :UILaunchStoryboardName" Info.plist 2>/dev/null || true
           cd ..
-          
-          # 5. Instalar pods
+      
+      - name: 📦 Install Pods
+        run: |
+          cd ios/App
           pod install --repo-update
       
       - name: Sync Capacitor
